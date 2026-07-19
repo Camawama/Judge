@@ -1,0 +1,30 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="All rights reserved"
+issueTrackerURL="https://github.com/camacraft/judgemod/issues"
+
+[[mods]]
+modId="judgemod"
+version="1.0.0"
+displayName="Judge Mod"
+displayURL="https://camacraft.net"
+logoFile="logo.png"
+credits="Camacraft Team"
+authors="Camacraft"
+description='''
+Overhauls death score and progression.
+'''
+
+[[dependencies.judgemod]]
+modId="forge"
+mandatory=true
+versionRange="[47,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.judgemod]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.1,1.21)"
+ordering="NONE"
+side="BOTH"

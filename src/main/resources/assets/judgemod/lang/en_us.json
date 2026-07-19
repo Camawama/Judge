@@ -1,0 +1,14 @@
+{
+  "block.judgemod.tribunal_stone": "Tribunal Stone",
+  "item.judgemod.tribunal_stone": "Tribunal Stone",
+  "item.judgemod.purification_offering": "Purification Offering",
+  "menu.judgemod.tribunal": "Tribunal",
+  "message.judgemod.level_up": "Judge Level Increased!",
+  "message.judgemod.cleanse": "Fractured Composure Cleansed.",
+  "message.judgemod.insufficient_score": "Insufficient Life Score!",
+  "message.judgemod.insufficient_score_cleanse": "Insufficient Life Score to Cleanse!",
+  "message.judgemod.need_offering": "Life Score too low! Offering required.",
+  "message.judgemod.gate_dimension": "Judge Level %d required to enter %s",
+  "message.judgemod.gate_block": "Judge Level %d required to interact.",
+  "message.judgemod.composure_recover": "Your composure recovers slightly..."
+}

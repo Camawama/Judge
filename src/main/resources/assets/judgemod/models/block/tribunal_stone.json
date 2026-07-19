@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "down": "judgemod:block/tribunal_stone_bottom",
+    "up": "judgemod:block/tribunal_stone_top",
+    "north": "judgemod:block/tribunal_stone_side",
+    "south": "judgemod:block/tribunal_stone_side",
+    "east": "judgemod:block/tribunal_stone_side",
+    "west": "judgemod:block/tribunal_stone_side",
+    "particle": "judgemod:block/tribunal_stone_side"
+  }
+}
