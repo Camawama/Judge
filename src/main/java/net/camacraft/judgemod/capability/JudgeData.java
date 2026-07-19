@@ -1,14 +1,15 @@
 package net.camacraft.judgemod.capability;
 
-import net.minecraft.core.BlockPos;
+import net.camacraft.judgemod.data.JudgeDataManager;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.LongTag;
-import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -17,28 +18,36 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public class JudgeData implements IJudgeData {
+    /**
+     * Mechanic timestamps (action history, death window, combos) are stored in game
+     * ticks. Saves from versions before 0.0.3 stored wall-clock milliseconds; any
+     * stored value at or above this threshold is treated as legacy data and dropped
+     * on load (game time would need ~158 years of uptime to reach it).
+     */
+    private static final long LEGACY_TIMESTAMP_CUTOFF = 100_000_000_000L;
+    private static final int MAX_CHRONOLOGICAL_ENTRIES = 100;
+
     private int lifeScore;
     private int judgeLevel;
     private int lastDeathLifeScore;
     private int fracturedComposureStacks;
     private int timeSinceLastDeath; // In ticks
-    private List<Long> deathTimestamps = new ArrayList<>();
+    private List<Long> deathTimestamps = new ArrayList<>(); // Game ticks
 
     // --- Action Tracking ---
-    private final Map<String, List<Long>> actionHistory = new HashMap<>();
-    private final List<ActionRecord> chronologicalHistory = new ArrayList<>();
+    private final Map<String, List<Long>> actionHistory = new HashMap<>(); // Game ticks
+    private final Deque<ActionRecord> chronologicalHistory = new ArrayDeque<>(); // Wall-clock, display only
     private final Set<String> enteredDimensionsThisLife = new HashSet<>();
-    private final Set<BlockPos> lootedChests = new HashSet<>();
     private long lastSleptDay = -1;
-    
-    // --- Combo Tracking ---
+
+    // --- Combo Tracking (game ticks) ---
     private String comboActionKey = "";
     private int comboCount = 0;
     private long comboExpireTime = 0;
 
     public static class ActionRecord {
         public final String actionId;
-        public final long timestamp;
+        public final long timestamp; // Wall-clock millis, for /judge history display only
         public final int delta;
 
         public ActionRecord(String actionId, long timestamp, int delta) {
@@ -90,43 +99,46 @@ public class JudgeData implements IJudgeData {
     public void tick() { this.timeSinceLastDeath++; }
 
     @Override
-    public void recordDeath() {
-        this.deathTimestamps.add(System.currentTimeMillis());
-        long cutoff = System.currentTimeMillis() - 3600000; // 1 hour
+    public void recordDeath(long gameTime) {
+        this.deathTimestamps.add(gameTime);
+        long cutoff = gameTime - JudgeDataManager.getHistoryRetentionTicks();
         this.deathTimestamps.removeIf(t -> t < cutoff);
     }
 
     @Override
-    public int getDeathsInWindow(long windowMillis) {
-        long cutoff = System.currentTimeMillis() - windowMillis;
+    public int getDeathsInWindow(long windowTicks, long gameTime) {
+        long cutoff = gameTime - windowTicks;
         return (int) deathTimestamps.stream().filter(t -> t >= cutoff).count();
     }
 
     @Override
-    public void recordAction(String actionKey, long timestamp, int delta) {
-        // Update map for logic checks
-        actionHistory.computeIfAbsent(actionKey, k -> new ArrayList<>()).add(timestamp);
-        long cutoff = System.currentTimeMillis() - 3600000; // 1 hour
-        actionHistory.get(actionKey).removeIf(t -> t < cutoff);
+    public void recordAction(String actionKey, long gameTime, int delta) {
+        // Update map for cooldown/cap/combo checks
+        actionHistory.computeIfAbsent(actionKey, k -> new ArrayList<>()).add(gameTime);
+        long cutoff = gameTime - JudgeDataManager.getHistoryRetentionTicks();
+        actionHistory.entrySet().removeIf(entry -> {
+            entry.getValue().removeIf(t -> t < cutoff);
+            return entry.getValue().isEmpty();
+        });
 
-        // Update chronological list for history command
-        chronologicalHistory.add(new ActionRecord(actionKey, timestamp, delta));
-        // Keep only last 100 entries to prevent bloat
-        if (chronologicalHistory.size() > 100) {
-            chronologicalHistory.remove(0);
+        // Update chronological list for the history command (wall clock for display)
+        chronologicalHistory.addLast(new ActionRecord(actionKey, System.currentTimeMillis(), delta));
+        while (chronologicalHistory.size() > MAX_CHRONOLOGICAL_ENTRIES) {
+            chronologicalHistory.removeFirst();
         }
     }
 
     @Override
     public List<Long> getActionTimestamps(String actionKey) {
-        return actionHistory.getOrDefault(actionKey, new ArrayList<>());
+        List<Long> timestamps = actionHistory.get(actionKey);
+        return timestamps == null ? List.of() : List.copyOf(timestamps);
     }
 
     @Override
     public List<ActionRecord> getChronologicalHistory() {
         return new ArrayList<>(chronologicalHistory);
     }
-    
+
     @Override
     public String getComboActionKey() { return comboActionKey; }
     @Override
@@ -138,7 +150,7 @@ public class JudgeData implements IJudgeData {
     @Override
     public long getComboExpireTime() { return comboExpireTime; }
     @Override
-    public void setComboExpireTime(long time) { this.comboExpireTime = time; }
+    public void setComboExpireTime(long gameTime) { this.comboExpireTime = gameTime; }
 
     @Override
     public boolean hasEnteredDimensionThisLife(String dimensionId) {
@@ -161,24 +173,13 @@ public class JudgeData implements IJudgeData {
     }
 
     @Override
-    public boolean hasLootedChest(BlockPos pos) {
-        return lootedChests.contains(pos);
-    }
-
-    @Override
-    public void addLootedChest(BlockPos pos) {
-        lootedChests.add(pos);
-    }
-
-    @Override
     public void copyFrom(IJudgeData other) {
         if (other instanceof JudgeData data) {
             this.judgeLevel = data.judgeLevel;
             this.fracturedComposureStacks = data.fracturedComposureStacks;
             this.deathTimestamps = new ArrayList<>(data.deathTimestamps);
-            this.lootedChests.addAll(data.lootedChests);
             this.lastSleptDay = data.lastSleptDay;
-            this.actionHistory.putAll(data.actionHistory);
+            data.actionHistory.forEach((key, timestamps) -> this.actionHistory.put(key, new ArrayList<>(timestamps)));
             this.chronologicalHistory.addAll(data.chronologicalHistory);
         }
     }
@@ -193,11 +194,6 @@ public class JudgeData implements IJudgeData {
         setComboCount(0);
         setComboExpireTime(0);
         // We keep history across lives for the command log
-    }
-
-    @Override
-    public void sync() {
-        // Handled by event handler
     }
 
     @Override
@@ -216,10 +212,6 @@ public class JudgeData implements IJudgeData {
         ListTag deaths = new ListTag();
         deathTimestamps.forEach(t -> deaths.add(LongTag.valueOf(t)));
         tag.put("DeathTimestamps", deaths);
-
-        ListTag looted = new ListTag();
-        lootedChests.forEach(pos -> looted.add(NbtUtils.writeBlockPos(pos)));
-        tag.put("LootedChests", looted);
 
         ListTag enteredDims = new ListTag();
         enteredDimensionsThisLife.forEach(dim -> enteredDims.add(StringTag.valueOf(dim)));
@@ -251,12 +243,12 @@ public class JudgeData implements IJudgeData {
         comboActionKey = tag.getString("ComboActionKey");
         comboCount = tag.getInt("ComboCount");
         comboExpireTime = tag.getLong("ComboExpireTime");
+        if (comboExpireTime >= LEGACY_TIMESTAMP_CUTOFF) comboExpireTime = 0;
 
         deathTimestamps = tag.getList("DeathTimestamps", Tag.TAG_LONG).stream()
-                .map(t -> ((LongTag) t).getAsLong()).collect(Collectors.toList());
-
-        lootedChests.clear();
-        tag.getList("LootedChests", Tag.TAG_COMPOUND).forEach(t -> lootedChests.add(NbtUtils.readBlockPos((CompoundTag) t)));
+                .map(t -> ((LongTag) t).getAsLong())
+                .filter(t -> t < LEGACY_TIMESTAMP_CUTOFF)
+                .collect(Collectors.toList());
 
         enteredDimensionsThisLife.clear();
         tag.getList("EnteredDimensions", Tag.TAG_STRING).forEach(t -> enteredDimensionsThisLife.add(t.getAsString()));
@@ -265,11 +257,13 @@ public class JudgeData implements IJudgeData {
         CompoundTag actions = tag.getCompound("ActionHistory");
         actions.getAllKeys().forEach(key -> {
             List<Long> timestamps = actions.getList(key, Tag.TAG_LONG).stream()
-                    .map(t -> ((LongTag) t).getAsLong()).collect(Collectors.toList());
-            actionHistory.put(key, timestamps);
+                    .map(t -> ((LongTag) t).getAsLong())
+                    .filter(t -> t < LEGACY_TIMESTAMP_CUTOFF)
+                    .collect(Collectors.toList());
+            if (!timestamps.isEmpty()) actionHistory.put(key, timestamps);
         });
 
         chronologicalHistory.clear();
-        tag.getList("ChronologicalHistory", Tag.TAG_COMPOUND).forEach(t -> chronologicalHistory.add(ActionRecord.deserialize((CompoundTag) t)));
+        tag.getList("ChronologicalHistory", Tag.TAG_COMPOUND).forEach(t -> chronologicalHistory.addLast(ActionRecord.deserialize((CompoundTag) t)));
     }
 }

@@ -5,6 +5,9 @@
   "compatibilityLevel": "JAVA_17",
   "refmap": "judgemod.refmap.json",
   "mixins": [
+    "ZombieVillagerAccessor"
+  ],
+  "client": [
     "DeathScreenMixin"
   ],
   "injectors": {

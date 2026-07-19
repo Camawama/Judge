@@ -1,6 +1,5 @@
 package net.camacraft.judgemod.client;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.camacraft.judgemod.JudgeMod;
 import net.camacraft.judgemod.menu.TribunalMenu;
 import net.camacraft.judgemod.network.PacketHandler;
@@ -15,6 +14,9 @@ import net.minecraft.world.entity.player.Inventory;
 public class TribunalScreen extends AbstractContainerScreen<TribunalMenu> {
     private static final ResourceLocation TEXTURE = new ResourceLocation(JudgeMod.MODID, "textures/gui/tribunal.png");
 
+    private Button buyLevelButton;
+    private Button cleanseButton;
+
     public TribunalScreen(TribunalMenu pMenu, Inventory pPlayerInventory, Component pTitle) {
         super(pMenu, pPlayerInventory, pTitle);
         this.imageWidth = 176;
@@ -27,21 +29,43 @@ public class TribunalScreen extends AbstractContainerScreen<TribunalMenu> {
         int x = (width - imageWidth) / 2;
         int y = (height - imageHeight) / 2;
 
-        this.addRenderableWidget(Button.builder(Component.literal("Buy Level"), button -> {
-            PacketHandler.sendToServer(new PacketTribunalAction(PacketTribunalAction.Action.BUY_LEVEL));
-        }).bounds(x + 10, y + 20, 80, 20).build());
+        this.buyLevelButton = this.addRenderableWidget(Button.builder(Component.translatable("screen.judgemod.buy_level"), button ->
+                PacketHandler.sendToServer(new PacketTribunalAction(PacketTribunalAction.Action.BUY_LEVEL))
+        ).bounds(x + 10, y + 20, 80, 20).build());
 
-        this.addRenderableWidget(Button.builder(Component.literal("Cleanse"), button -> {
-            PacketHandler.sendToServer(new PacketTribunalAction(PacketTribunalAction.Action.CLEANSE));
-        }).bounds(x + 10, y + 50, 80, 20).build());
+        this.cleanseButton = this.addRenderableWidget(Button.builder(Component.translatable("screen.judgemod.cleanse"), button ->
+                PacketHandler.sendToServer(new PacketTribunalAction(PacketTribunalAction.Action.CLEANSE))
+        ).bounds(x + 10, y + 50, 80, 20).build());
+
+        updateButtonStates();
+    }
+
+    @Override
+    protected void containerTick() {
+        super.containerTick();
+        updateButtonStates();
+    }
+
+    private void updateButtonStates() {
+        if (buyLevelButton != null) {
+            buyLevelButton.active = this.menu.clientLifeScore >= this.menu.clientCostToNextLevel;
+        }
+        if (cleanseButton != null) {
+            // Cleansing can also be paid with an offering, so stacks are the only hard requirement.
+            cleanseButton.active = this.menu.clientFracturedComposureStacks > 0;
+        }
     }
 
     @Override
     protected void renderBg(GuiGraphics guiGraphics, float pPartialTick, int pMouseX, int pMouseY) {
-        RenderSystem.setShaderTexture(0, TEXTURE);
         int x = (width - imageWidth) / 2;
         int y = (height - imageHeight) / 2;
         guiGraphics.blit(TEXTURE, x, y, 0, 0, imageWidth, imageHeight);
+    }
+
+    @Override
+    protected void renderLabels(GuiGraphics guiGraphics, int pMouseX, int pMouseY) {
+        // Suppress the default title/inventory labels; this screen draws its own text.
     }
 
     @Override
@@ -49,19 +73,14 @@ public class TribunalScreen extends AbstractContainerScreen<TribunalMenu> {
         renderBackground(guiGraphics);
         super.render(guiGraphics, mouseX, mouseY, partialTick);
         renderTooltip(guiGraphics, mouseX, mouseY);
-        
+
         int x = (width - imageWidth) / 2;
         int y = (height - imageHeight) / 2;
-        
-        // Draw info from the menu, which now holds the server-synced data
-        int level = this.menu.clientJudgeLevel;
-        int score = this.menu.clientLifeScore;
-        int cost = this.menu.clientCostToNextLevel;
-        int stacks = this.menu.clientFracturedComposureStacks;
-        
-        guiGraphics.drawString(this.font, "Level: " + level, x + 100, y + 20, 0xFFFFFF);
-        guiGraphics.drawString(this.font, "Score: " + score, x + 100, y + 30, 0xFFFFFF);
-        guiGraphics.drawString(this.font, "Cost: " + cost, x + 100, y + 40, 0xFFFFFF);
-        guiGraphics.drawString(this.font, "Stains: " + stacks, x + 100, y + 60, 0xFF5555);
+
+        // Draw info from the menu, which holds the server-synced data
+        guiGraphics.drawString(this.font, Component.translatable("screen.judgemod.level", this.menu.clientJudgeLevel), x + 100, y + 20, 0xFFFFFF);
+        guiGraphics.drawString(this.font, Component.translatable("screen.judgemod.score", this.menu.clientLifeScore), x + 100, y + 30, 0xFFFFFF);
+        guiGraphics.drawString(this.font, Component.translatable("screen.judgemod.cost", this.menu.clientCostToNextLevel), x + 100, y + 40, 0xFFFFFF);
+        guiGraphics.drawString(this.font, Component.translatable("screen.judgemod.stains", this.menu.clientFracturedComposureStacks), x + 100, y + 60, 0xFF5555);
     }
 }

@@ -1,6 +1,7 @@
 {
   "level_cost": { "B": 100, "A": 25, "Q": 6 },
   "fractured_composure": { "window_minutes": 5, "trigger_deaths": 3, "max_stacks": 3, "dishonor_multiplier_per_stack": 0.75, "mistake_multiplier_per_stack": 0.35, "decay_minutes_per_stack": 2 },
+  "survive_interval_minutes": 10,
   "dimension_gates": { "minecraft:the_nether": 15, "minecraft:the_end": 35 },
 
   "block_interaction_gates": {
@@ -52,18 +53,18 @@
   },
 
   "action_rules": [
-    { "id": "kill_pet", "trigger": "kill_mob", "target": "any", "delta": -5000, "condition": "is_tamed", "combo_window_seconds": 5 },
+    { "id": "kill_pet", "trigger": "kill_mob", "target": "any", "delta": -5000, "condition": "is_tamed", "exclusive": true, "combo_window_seconds": 5 },
     { "id": "kill_golem", "trigger": "kill_mob", "target": "minecraft:iron_golem", "delta": -2000, "combo_window_seconds": 0 },
     { "id": "kill_villager", "trigger": "kill_mob", "target": "minecraft:villager", "delta": -1500, "combo_window_seconds": 0 },
     { "id": "attack_golem", "trigger": "hit_entity", "target": "minecraft:iron_golem", "delta": -250, "cooldown_seconds": 2, "combo_window_seconds": 0 },
-    { "id": "loot_village_chest", "trigger": "loot_village_chest", "target": "minecraft:chest", "delta": -200, "combo_window_seconds": 0 },
-    { "id": "break_workstation", "trigger": "break_block", "target": "#minecraft:job_site_blocks", "delta": -100, "combo_window_seconds": 0 },
+    { "id": "loot_village_chest", "trigger": "loot_village_chest", "delta": -200, "cooldown_seconds": 2, "combo_window_seconds": 0 },
+    { "id": "break_workstation", "trigger": "break_block", "target": "#minecraft:job_site_blocks", "condition": "in_village", "delta": -100, "combo_window_seconds": 0 },
     { "id": "hit_villager", "trigger": "hit_entity", "target": "minecraft:villager", "delta": -50, "cooldown_seconds": 2, "combo_window_seconds": 0 },
-    { "id": "kill_passive", "trigger": "kill_mob", "target": "#minecraft:animals", "delta": -50, "combo_window_seconds": 5 },
+    { "id": "kill_passive", "trigger": "kill_mob", "target": "#judgemod:animals", "delta": -50, "combo_window_seconds": 5 },
     { "id": "kill_player", "trigger": "kill_mob", "target": "minecraft:player", "delta": -400, "combo_window_seconds": 0 },
 
     { "id": "trade_villager", "trigger": "trade_villager", "delta": 5, "cap": 100, "cap_duration_minutes": 1440, "combo_window_seconds": 3 },
-    { "id": "kill_hostile", "trigger": "kill_mob", "target": "#minecraft:monsters", "delta": 10, "cap": 100, "cap_duration_minutes": 10, "ignore_spawners": true, "combo_window_seconds": 5 },
+    { "id": "kill_hostile", "trigger": "kill_mob", "target": "#judgemod:monsters", "delta": 10, "cap": 100, "cap_duration_minutes": 10, "ignore_spawners": true, "combo_window_seconds": 5 },
     { "id": "advancement_task", "trigger": "advancement_task", "delta": 10, "combo_window_seconds": 0 },
     { "id": "sleep", "trigger": "sleep", "delta": 40, "combo_window_seconds": 0 },
     { "id": "survive_10_min", "trigger": "survive_time", "delta": 75, "cap": 3, "cap_duration_minutes": 60, "combo_window_seconds": 0 },
@@ -80,14 +81,14 @@
 
   "mistake_rules": [
     { "damage_type": "outOfWorld", "base_penalty": 500, "per_heart_penalty": 0, "cooldown_seconds": 10 },
-    { "damage_type": "inWall", "base_penalty": 10, "per_heart_penalty": 12 },
-    { "damage_type": "lava", "base_penalty": 10, "per_heart_penalty": 14 },
+    { "damage_type": "inWall", "base_penalty": 10, "per_heart_penalty": 12, "cooldown_seconds": 2 },
+    { "damage_type": "lava", "base_penalty": 10, "per_heart_penalty": 14, "cooldown_seconds": 2 },
     { "damage_type": "fall", "base_penalty": 5, "per_heart_penalty": 12 },
     { "damage_type": "inFire", "base_penalty": 6, "per_heart_penalty": 10, "cooldown_seconds": 3 },
     { "damage_type": "onFire", "base_penalty": 6, "per_heart_penalty": 10, "cooldown_seconds": 3 },
-    { "damage_type": "freeze", "base_penalty": 6, "per_heart_penalty": 10 },
-    { "damage_type": "drown", "base_penalty": 8, "per_heart_penalty": 10 },
-    { "damage_type": "starve", "base_penalty": 8, "per_heart_penalty": 10 },
+    { "damage_type": "freeze", "base_penalty": 6, "per_heart_penalty": 10, "cooldown_seconds": 2 },
+    { "damage_type": "drown", "base_penalty": 8, "per_heart_penalty": 10, "cooldown_seconds": 2 },
+    { "damage_type": "starve", "base_penalty": 8, "per_heart_penalty": 10, "cooldown_seconds": 3 },
     { "damage_type": "cactus", "base_penalty": 2, "per_heart_penalty": 6, "cooldown_seconds": 2 },
     { "damage_type": "sweetBerryBush", "base_penalty": 2, "per_heart_penalty": 6, "cooldown_seconds": 2 }
   ],
@@ -99,7 +100,7 @@
     { "threshold": -100, "effect": "minecraft:unluck", "amplifier": 0 },
     { "threshold": 250, "effect": "minecraft:luck", "amplifier": 0 },
     { "threshold": 1000, "effect": "minecraft:luck", "amplifier": 1 },
-    { "threshold": 2500, "effect": "minecraft:hero_of_the_village", "amplifier": 0 },
+    { "threshold": 2500, "effect": "minecraft:resistance", "amplifier": 0 },
     { "threshold": 5000, "effect": "minecraft:speed", "amplifier": 0 },
     { "threshold": 9000, "effect": "minecraft:speed", "amplifier": 1 }
   ]

@@ -10,30 +10,32 @@ public class PacketJudgePopup {
     private final String id;
     private final int value;
     private final int combo;
+    private final boolean levelUp;
 
-    public PacketJudgePopup(String id, int value, int combo) {
+    public PacketJudgePopup(String id, int value, int combo, boolean levelUp) {
         this.id = id;
         this.value = value;
         this.combo = combo;
+        this.levelUp = levelUp;
     }
 
     public PacketJudgePopup(FriendlyByteBuf buf) {
         this.id = buf.readUtf();
         this.value = buf.readInt();
         this.combo = buf.readInt();
+        this.levelUp = buf.readBoolean();
     }
 
     public void toBytes(FriendlyByteBuf buf) {
         buf.writeUtf(id);
         buf.writeInt(value);
         buf.writeInt(combo);
+        buf.writeBoolean(levelUp);
     }
 
     public boolean handle(Supplier<NetworkEvent.Context> supplier) {
         NetworkEvent.Context context = supplier.get();
-        context.enqueueWork(() -> {
-            ClientSetup.showPopup(id, value, combo);
-        });
+        context.enqueueWork(() -> ClientSetup.showPopup(id, value, combo, levelUp));
         return true;
     }
 }

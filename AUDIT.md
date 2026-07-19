@@ -1,5 +1,7 @@
 # JUDGE Mod — Full Codebase Audit
 
+> **STATUS: RESOLVED in v0.0.3 (2026-07-18).** Every finding below was addressed; see [CHANGELOG.md](CHANGELOG.md) for the per-item resolution. This document is kept as the historical record of the v0.0.2 state.
+
 **Date:** 2026-07-18
 **Scope:** All Java sources, datapack rules (`judge_rules/default.json`), resources, network layer, build configuration.
 **Target:** Forge 1.20.1 (47.4.16), mod version 0.0.2

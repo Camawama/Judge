@@ -2,6 +2,7 @@ package net.camacraft.judgemod.network;
 
 import net.camacraft.judgemod.capability.JudgeDataProvider;
 import net.camacraft.judgemod.data.JudgeDataManager;
+import net.camacraft.judgemod.menu.TribunalMenu;
 import net.camacraft.judgemod.registry.ModItems;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.FriendlyByteBuf;
@@ -38,54 +39,56 @@ public class PacketTribunalAction {
             ServerPlayer player = context.getSender();
             if (player == null) return;
 
+            // Server-side validation: tribunal actions are only legal while a
+            // Tribunal menu opened from a real Tribunal Stone is in use.
+            if (!(player.containerMenu instanceof TribunalMenu menu) || !menu.stillValid(player)) return;
+
             player.getCapability(JudgeDataProvider.JUDGE_DATA).ifPresent(data -> {
                 if (action == Action.BUY_LEVEL) {
-                    JudgeDataManager.LevelCostConfig costConfig = JudgeDataManager.getLevelCostConfig();
                     int currentLevel = data.getJudgeLevel();
-                    int cost = costConfig.B + costConfig.A * currentLevel + costConfig.Q * currentLevel * currentLevel;
-                    
+                    int cost = JudgeDataManager.getLevelCost(currentLevel);
+
                     if (data.getLifeScore() >= cost) {
                         data.addLifeScore(-cost);
                         data.setJudgeLevel(currentLevel + 1);
-                        PacketHandler.sendToPlayer(new PacketJudgePopup("level_up", currentLevel + 1, 1), player);
-                        player.sendSystemMessage(Component.literal("Judge Level Increased!").withStyle(ChatFormatting.GOLD));
+                        PacketHandler.sendToPlayer(new PacketJudgePopup("level_up", currentLevel + 1, 1, true), player);
+                        player.sendSystemMessage(Component.translatable("message.judgemod.level_up").withStyle(ChatFormatting.GOLD));
                     } else {
-                        player.displayClientMessage(Component.literal("Insufficient Life Score!").withStyle(ChatFormatting.RED), true);
+                        player.displayClientMessage(Component.translatable("message.judgemod.insufficient_score").withStyle(ChatFormatting.RED), true);
                     }
                 } else if (action == Action.CLEANSE) {
-                    if (data.getFracturedComposureStacks() > 0) {
-                        JudgeDataManager.LevelCostConfig costConfig = JudgeDataManager.getLevelCostConfig();
-                        int nextLevelCost = costConfig.B + costConfig.A * data.getJudgeLevel() + costConfig.Q * data.getJudgeLevel() * data.getJudgeLevel();
-                        int cleanseCost = Math.max(150, (int)(0.20 * nextLevelCost));
+                    if (data.getFracturedComposureStacks() <= 0) {
+                        player.displayClientMessage(Component.translatable("message.judgemod.no_stacks").withStyle(ChatFormatting.RED), true);
+                    } else {
+                        int nextLevelCost = JudgeDataManager.getLevelCost(data.getJudgeLevel());
+                        int cleanseCost = Math.max(150, (int) (0.20 * nextLevelCost));
 
                         if (data.getLifeScore() >= cleanseCost) {
                             data.addLifeScore(-cleanseCost);
                             data.setFracturedComposureStacks(data.getFracturedComposureStacks() - 1);
-                            player.sendSystemMessage(Component.literal("Fractured Composure Cleansed.").withStyle(ChatFormatting.AQUA));
+                            player.sendSystemMessage(Component.translatable("message.judgemod.cleanse").withStyle(ChatFormatting.AQUA));
                         } else {
                             ItemStack offering = new ItemStack(ModItems.PURIFICATION_OFFERING.get());
                             if (player.getInventory().contains(offering)) {
                                 player.getInventory().clearOrCountMatchingItems(p -> p.is(offering.getItem()), 1, player.inventoryMenu.getCraftSlots());
                                 data.setFracturedComposureStacks(data.getFracturedComposureStacks() - 1);
-                                player.sendSystemMessage(Component.literal("Fractured Composure Cleansed via Offering.").withStyle(ChatFormatting.AQUA));
+                                player.sendSystemMessage(Component.translatable("message.judgemod.cleanse_offering").withStyle(ChatFormatting.AQUA));
                             } else {
-                                player.displayClientMessage(Component.literal("Insufficient Life Score or Purification Offering!").withStyle(ChatFormatting.RED), true);
+                                player.displayClientMessage(Component.translatable("message.judgemod.insufficient_cleanse").withStyle(ChatFormatting.RED), true);
                             }
                         }
                     }
                 }
-                
+
                 // Sync vanilla score
                 player.setScore(data.getLifeScore());
 
                 // Sync data after any action
-                PacketHandler.sendToPlayer(new PacketSyncJudgeData(data.getLifeScore(), data.getJudgeLevel(), data.getLastDeathLifeScore(), data.getFracturedComposureStacks()), player);
-                
-                // Also send a packet to update the open container if it's a TribunalMenu
-                if (player.containerMenu instanceof net.camacraft.judgemod.menu.TribunalMenu menu) {
-                    menu.updateData(data.getLifeScore(), data.getJudgeLevel(), data.getFracturedComposureStacks());
-                    PacketHandler.sendToPlayer(new PacketUpdateTribunalMenu(data.getLifeScore(), data.getJudgeLevel(), data.getFracturedComposureStacks()), player);
-                }
+                PacketHandler.syncJudgeData(player);
+
+                int cost = JudgeDataManager.getLevelCost(data.getJudgeLevel());
+                menu.updateData(data.getLifeScore(), data.getJudgeLevel(), data.getFracturedComposureStacks(), cost);
+                PacketHandler.sendToPlayer(new PacketUpdateTribunalMenu(data.getLifeScore(), data.getJudgeLevel(), data.getFracturedComposureStacks(), cost), player);
             });
         });
         return true;

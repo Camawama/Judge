@@ -1,8 +1,6 @@
 package net.camacraft.judgemod.network;
 
-import net.camacraft.judgemod.capability.JudgeDataProvider;
 import net.camacraft.judgemod.client.ClientSetup;
-import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.network.NetworkEvent;
 

@@ -1,11 +1,9 @@
 package net.camacraft.judgemod.capability;
 
-import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraftforge.common.util.INBTSerializable;
 
 import java.util.List;
-import java.util.Map;
 
 public interface IJudgeData extends INBTSerializable<CompoundTag> {
     int getLifeScore();
@@ -21,25 +19,25 @@ public interface IJudgeData extends INBTSerializable<CompoundTag> {
     int getFracturedComposureStacks();
     void setFracturedComposureStacks(int stacks);
 
-    // --- Timers and Cooldowns ---
+    // --- Timers and Cooldowns (all timestamps are in game ticks) ---
     int getTimeSinceLastDeath();
     void setTimeSinceLastDeath(int ticks);
     void tick();
 
-    void recordDeath();
-    int getDeathsInWindow(long windowMillis);
+    void recordDeath(long gameTime);
+    int getDeathsInWindow(long windowTicks, long gameTime);
 
     // --- Action Tracking for Anti-Cheese & Combos ---
-    void recordAction(String actionKey, long timestamp, int delta);
+    void recordAction(String actionKey, long gameTime, int delta);
     List<Long> getActionTimestamps(String actionKey);
     List<JudgeData.ActionRecord> getChronologicalHistory();
-    
+
     String getComboActionKey();
     void setComboActionKey(String key);
     int getComboCount();
     void setComboCount(int count);
     long getComboExpireTime();
-    void setComboExpireTime(long time);
+    void setComboExpireTime(long gameTime);
 
     boolean hasEnteredDimensionThisLife(String dimensionId);
     void setEnteredDimensionThisLife(String dimensionId);
@@ -47,11 +45,7 @@ public interface IJudgeData extends INBTSerializable<CompoundTag> {
     boolean hasSleptOnDay(long day);
     void setLastSleptDay(long day);
 
-    boolean hasLootedChest(BlockPos pos);
-    void addLootedChest(BlockPos pos);
-
     // --- Persistence ---
     void copyFrom(IJudgeData other);
     void resetForNewLife();
-    void sync();
 }

@@ -4,6 +4,7 @@ import net.camacraft.judgemod.client.ClientEventHandler;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.DeathScreen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -18,7 +19,10 @@ public class DeathScreenMixin {
 
     @ModifyArg(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphics;drawCenteredString(Lnet/minecraft/client/gui/Font;Lnet/minecraft/network/chat/Component;III)V"), index = 1)
     private Component judgemod$hideVanillaScore(Component text) {
-        if (text != null && text.getString().startsWith("Score:")) {
+        // Match the vanilla score line by its translation key, not its rendered
+        // English text, so this works in every locale.
+        if (text != null && text.getContents() instanceof TranslatableContents translatable
+                && translatable.getKey().startsWith("deathScreen.score")) {
             return Component.empty();
         }
         return text;

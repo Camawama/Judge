@@ -49,6 +49,7 @@ minecraft {
 
         gameTestServer {
             property 'forge.enabledGameTestNamespaces', mod_id
+            arg "-mixin.config=judgemod.mixins.json"
         }
 
         data {

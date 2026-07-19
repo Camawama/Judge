@@ -35,8 +35,11 @@ Located in `config/judgemod-client.toml`.
 *   **Position & Scale**: Move and resize HUD elements.
 
 ### Admin Commands
-*   `/judge get <player> score|level|history`: View stats or a detailed action log.
-*   `/judge set <player> score|level <amount>`: Manually set stats.
+*   `/judge get <player> score|level|composure`: View stats.
+*   `/judge get <player> history [page]`: Paginated action log (newest first).
+*   `/judge set <player> score|level|composure <amount>`: Manually set stats.
+*   `/judge add <player> score <amount>`: Adjust score relatively.
+*   `/judge reset <player>`: Reset score, composure, and combos (Judge Level and history are kept).
 
 ### Datapack Configuration
 JudgeMod is fully data-driven. You can override the default rules by creating a datapack and placing a JSON file at `data/judgemod/judge_rules/default.json`.
@@ -48,12 +51,17 @@ JudgeMod is fully data-driven. You can override the default rules by creating a 
 *   **Q (Quadratic)**: Exponential increase for high levels.
 
 #### 2. Fractured Composure Settings
-*   `window_minutes`: Time window to track recent deaths (default: 5).
-*   `trigger_deaths`: Number of deaths in the window to trigger the penalty (default: 3).
+*   `window_minutes`: Time window to track recent deaths (default: 5, minimum 1).
+*   `trigger_deaths`: Number of deaths in the window to trigger the penalty (default: 3, minimum 1).
 *   `max_stacks`: Maximum penalty stacks a player can accumulate.
 *   `dishonor_multiplier_per_stack`: Multiplier for "Dishonor" penalties (e.g., killing villagers) per stack.
 *   `mistake_multiplier_per_stack`: Multiplier for "Mistake" penalties (e.g., fall damage) per stack.
-*   `decay_minutes_per_stack`: Time alive required to remove one stack naturally.
+*   `decay_minutes_per_stack`: Time alive required to remove one stack naturally (minimum 1).
+
+All values are clamped to sane minimums at load, so a bad datapack cannot crash the server.
+
+#### 2b. Survive Reward Interval
+*   `survive_interval_minutes` (top level, default: 10): How often the `survive_time` trigger fires while a player stays alive.
 
 #### 3. Progression Gates
 Define the Judge Level required to access features.
@@ -63,27 +71,34 @@ Define the Judge Level required to access features.
 
 #### 4. Action Rules (Gains/Losses)
 Define events that change Life Score.
-*   `trigger`: Event type (`kill_mob`, `sleep`, `enter_dimension`, `advancement`, `trade_villager`, `loot_chest`, `survive_time`).
-*   `target`: Entity ID, Block ID, or Tag (e.g., `#minecraft:animals`) to match.
+*   `trigger`: Event type. One of: `kill_mob`, `hit_entity`, `break_block`, `sleep`, `enter_dimension`, `advancement_task`, `advancement_goal`, `advancement_challenge`, `trade_villager`, `loot_chest`, `loot_village_chest`, `survive_time`, `cure_villager`, `win_raid`.
+*   `target`: Entity ID or entity tag for `kill_mob`/`hit_entity` (e.g., `#judgemod:animals`, `#judgemod:monsters`); Block ID or block tag for `break_block` (e.g., `#minecraft:job_site_blocks`).
 *   `delta`: Score change (positive or negative).
 *   `cap`: Max times this rule can trigger in a window.
-*   `cap_duration_minutes`: The window for the cap.
+*   `cap_duration_minutes`: The window for the cap (any length is honored, including multi-day windows).
+*   `cooldown_seconds`: Minimum time between triggers of this rule.
 *   `combo_window_seconds`: Time to chain this action for a multiplier.
-*   `ignore_spawners`: If true, mobs from spawners give 0 score.
-*   `condition`: Optional checks (`player_not_hungry`, `is_tamed`).
+*   `ignore_spawners`: If true, mobs spawned by monster spawners never award this rule.
+*   `exclusive`: If true and this rule matches, no later rule for the same trigger is evaluated (rules run in file order). Used so `kill_pet` doesn't also count as `kill_passive`.
+*   `condition`: Optional checks (`player_food_full`, `is_tamed`, `in_village`).
+
+All timing (cooldowns, caps, combos, the death window) runs on game time, so it pauses when the game is paused and survives server restarts.
+
+Note on loot chests: only naturally generated, still-unopened loot containers (chests, trapped chests, barrels with a pending loot table) count for `loot_chest`/`loot_village_chest`. Player-placed storage is never penalized.
 
 #### 5. Mistake Rules (Damage)
 Define penalties for taking specific types of damage.
 *   `damage_type`: The damage source ID (e.g., `fall`, `lava`, `drown`).
 *   `base_penalty`: Flat score reduction.
-*   `per_heart_penalty`: Additional reduction per half-heart of damage taken.
+*   `per_heart_penalty`: Additional reduction per full heart of damage taken.
+*   `cooldown_seconds`: Minimum time between penalties for this damage type (recommended for periodic damage like lava).
 
 #### 6. Threshold Tiers (Buffs)
-Define effects granted based on current Life Score.
+Define effects granted based on current Life Score. When several tiers qualify for the same effect, only the strongest (highest amplifier) applies.
 *   `threshold`: The score value required.
 *   `effect`: The potion effect ID (e.g., `minecraft:luck`).
 *   `amplifier`: The effect level (0 = Level I).
-*   `is_negative`: If true, applies when score is *below* the threshold (for debuffs).
+*   `is_negative`: If true, applies when score is *at or below* the threshold (for debuffs). Defaults to true for negative thresholds, false otherwise.
 
 **Comprehensive JSON Example:**
 ```json
