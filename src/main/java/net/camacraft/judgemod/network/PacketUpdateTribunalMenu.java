@@ -1,5 +1,6 @@
 package net.camacraft.judgemod.network;
 
+import net.camacraft.camafy.network.Packets;
 import net.camacraft.judgemod.client.ClientSetup;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.network.NetworkEvent;
@@ -33,11 +34,10 @@ public class PacketUpdateTribunalMenu {
         buf.writeInt(costToNextLevel);
     }
 
-    public boolean handle(Supplier<NetworkEvent.Context> supplier) {
-        NetworkEvent.Context context = supplier.get();
+    public void handle(Supplier<NetworkEvent.Context> supplier) {
         // The cost travels with the packet: the level-cost config lives in server
         // datapacks, so the client must never recompute it locally.
-        context.enqueueWork(() -> ClientSetup.handleTribunalUpdate(lifeScore, judgeLevel, fracturedComposureStacks, costToNextLevel));
-        return true;
+        Packets.handleClient(supplier, () -> () ->
+                ClientSetup.handleTribunalUpdate(lifeScore, judgeLevel, fracturedComposureStacks, costToNextLevel));
     }
 }

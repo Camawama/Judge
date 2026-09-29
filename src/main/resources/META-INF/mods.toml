@@ -25,3 +25,10 @@ mandatory=true
 versionRange="${minecraft_version_range}"
 ordering="NONE"
 side="BOTH"
+
+[[dependencies.judgemod]]
+modId="camafy"
+mandatory=true
+versionRange="${camafy_version_range}"
+ordering="AFTER"
+side="BOTH"

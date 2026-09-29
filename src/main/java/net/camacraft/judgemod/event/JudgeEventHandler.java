@@ -1,5 +1,6 @@
 package net.camacraft.judgemod.event;
 
+import net.camacraft.camafy.minigame.MatchPolicies;
 import net.camacraft.judgemod.JudgeMod;
 import net.camacraft.judgemod.capability.IJudgeData;
 import net.camacraft.judgemod.capability.JudgeDataProvider;
@@ -19,11 +20,13 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.TamableAnimal;
 import net.minecraft.world.entity.animal.Animal;
@@ -51,6 +54,7 @@ import net.minecraftforge.event.entity.player.PlayerWakeUpEvent;
 import net.minecraftforge.event.entity.player.TradeWithVillagerEvent;
 import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.eventbus.api.Event;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.registries.ForgeRegistries;
 
@@ -73,9 +77,15 @@ public class JudgeEventHandler {
      */
     private static boolean applyingThresholdEffects = false;
 
-    /** Players outside normal survival judgment: creative, spectator, and mod-machinery fake players. */
+    /**
+     * Players outside normal survival judgment: creative, spectator, mod-machinery fake players, and
+     * players in a minigame match (Game Start or any other Camafy match host). A match hands out its
+     * own kits, arenas and teleports and clears effects, so gates, penalties, rewards and debuffs
+     * all wait until the player is back in the world.
+     */
     private static boolean isExempt(Player player) {
-        return player.isCreative() || player.isSpectator() || player instanceof FakePlayer;
+        return player.isCreative() || player.isSpectator() || player instanceof FakePlayer
+                || (player instanceof ServerPlayer serverPlayer && MatchPolicies.inMatch(serverPlayer));
     }
 
     @SubscribeEvent
@@ -114,8 +124,12 @@ public class JudgeEventHandler {
             });
             event.getOriginal().invalidateCaps(); // Re-invalidate after use
         } else {
+            // Returning from the End: the original was already removed (changeDimension, then respawn),
+            // which invalidated its caps, so it needs reviving here too or the data is silently lost.
+            event.getOriginal().reviveCaps();
             event.getOriginal().getCapability(JudgeDataProvider.JUDGE_DATA).ifPresent(oldData ->
                     event.getEntity().getCapability(JudgeDataProvider.JUDGE_DATA).ifPresent(newData -> newData.deserializeNBT(oldData.serializeNBT())));
+            event.getOriginal().invalidateCaps(); // Re-invalidate after use
         }
     }
 
@@ -149,7 +163,11 @@ public class JudgeEventHandler {
                 data.setEnteredDimensionThisLife(player.level().dimension().location().toString()));
     }
 
-    /** Gate check only. The entry reward is granted after travel completes, in {@link #onPlayerChangedDimension}. */
+    /**
+     * Gate check only. The entry reward is granted after travel completes, in {@link #onPlayerChangedDimension}.
+     * Never cancels a player in a match ({@link #isExempt}): a match host's arena and lobby
+     * teleports are not the player's choice, and a silently cancelled one strands them.
+     */
     @SubscribeEvent
     public void onDimensionTravel(EntityTravelToDimensionEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player) || isExempt(player)) return;
@@ -187,10 +205,20 @@ public class JudgeEventHandler {
                 PacketHandler.syncJudgeData(victim);
             });
         }
-        if (event.getSource().getEntity() instanceof ServerPlayer killer
-                && killer != event.getEntity() && !isExempt(killer)) {
+        ServerPlayer killer = creditedKiller(event.getEntity(), event.getSource());
+        if (killer != null && !isExempt(killer)) {
             applyRule(killer, "kill_mob", event.getEntity());
         }
+    }
+
+    /**
+     * The player who gets the kill: the attacker, else whoever vanilla would credit (the last
+     * player to hurt the victim in the past 5 seconds). A fall or wall impact after being knocked
+     * off an edge has no attacker of its own. Never the victim.
+     */
+    private static ServerPlayer creditedKiller(LivingEntity victim, DamageSource source) {
+        if (source.getEntity() instanceof ServerPlayer killer) return killer != victim ? killer : null;
+        return victim.getKillCredit() instanceof ServerPlayer credited && credited != victim ? credited : null;
     }
 
     @SubscribeEvent
@@ -240,11 +268,18 @@ public class JudgeEventHandler {
     @SubscribeEvent
     public void onDamage(LivingDamageEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player) || isExempt(player)) return;
-        String type = event.getSource().getMsgId();
-        JudgeDataManager.getMistakeRules().stream().filter(r -> r.damageType.equals(type)).findFirst().ifPresent(rule ->
+        DamageSource source = event.getSource();
+        // Not a mistake when someone is responsible: hurt by an attacker, or hurt within 5 seconds
+        // of an attack (vanilla's "doomed to fall by" credit) -- knocked off a ledge, into lava,
+        // into a wall.
+        LivingEntity credited = player.getKillCredit();
+        if ((source.getEntity() != null && source.getEntity() != player)
+                || (credited != null && credited != player)) return;
+        JudgeDataManager.getMistakeRules().stream().filter(r -> r.matches(source)).findFirst().ifPresent(rule ->
                 player.getCapability(JudgeDataProvider.JUDGE_DATA).ifPresent(data -> {
+                    String key = "mistake_" + rule.id;
                     long now = player.level().getGameTime();
-                    List<Long> timestamps = data.getActionTimestamps("mistake_" + type);
+                    List<Long> timestamps = data.getActionTimestamps(key);
                     if (rule.cooldownSeconds > 0 && !timestamps.isEmpty()
                             && (now - timestamps.get(timestamps.size() - 1)) < rule.cooldownSeconds * 20L) return;
 
@@ -253,10 +288,10 @@ public class JudgeEventHandler {
                     double multiplier = 1.0 + (stacks * JudgeDataManager.getFcConfig().mistakeMultiplier);
                     int finalPenalty = (int) (penalty * multiplier);
 
-                    data.recordAction("mistake_" + type, now, -finalPenalty);
+                    data.recordAction(key, now, -finalPenalty);
                     data.addLifeScore(-finalPenalty);
                     player.setScore(data.getLifeScore()); // Sync vanilla score immediately
-                    PacketHandler.sendToPlayer(new PacketJudgePopup("mistake_" + type, -finalPenalty, 1, false), player);
+                    PacketHandler.sendToPlayer(new PacketJudgePopup(key, -finalPenalty, 1, false), player);
                     PacketHandler.syncJudgeData(player);
                 }));
     }
@@ -304,12 +339,14 @@ public class JudgeEventHandler {
         });
     }
 
-    @SubscribeEvent
+    // HIGH: other mods act on EntityInteract at NORMAL and cancel it (Vanilla Backport attaches
+    // leads to boats and mobs that way), so the gate has to run before them.
+    @SubscribeEvent(priority = EventPriority.HIGH)
     public void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
         checkEntityInteractItemGate(event);
     }
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.HIGH)
     public void onEntityInteractSpecific(PlayerInteractEvent.EntityInteractSpecific event) {
         checkEntityInteractItemGate(event);
     }

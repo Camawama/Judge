@@ -1,14 +1,13 @@
 package net.camacraft.judgemod.client;
 
+import net.camacraft.camafy.util.color.Argb;
 import net.camacraft.judgemod.JudgeMod;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.screens.DeathScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
-import net.minecraftforge.client.event.RenderGuiOverlayEvent;
-import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
+import net.minecraftforge.client.gui.overlay.ForgeGui;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -88,19 +87,18 @@ public class ClientEventHandler {
         totalScoreDisplayTime = 0;
     }
 
-    @SubscribeEvent
-    public static void onRenderActionPopups(RenderGuiOverlayEvent.Post event) {
-        if (!ClientConfig.DISPLAY_ACTION_POPUPS.get() || event.getOverlay() != VanillaGuiOverlay.EXPERIENCE_BAR.type()) return;
+    /**
+     * Registered as its own overlay just above the XP bar (see {@link ClientSetup}), rather than
+     * hooking the XP bar's Post event, so it still draws when another mod cancels the XP bar.
+     * Not called while the GUI is hidden or on the death screen (the overlay's gates).
+     */
+    public static void renderActionPopups(ForgeGui gui, GuiGraphics graphics, float partialTick, int screenWidth, int screenHeight) {
+        if (!ClientConfig.DISPLAY_ACTION_POPUPS.get()) return;
 
         Minecraft mc = Minecraft.getInstance();
-        if (mc.screen instanceof DeathScreen) return;
 
         activePopups.removeIf(ScorePopup::isExpired);
         if (activePopups.isEmpty()) return;
-
-        GuiGraphics graphics = event.getGuiGraphics();
-        int screenWidth = event.getWindow().getGuiScaledWidth();
-        int screenHeight = event.getWindow().getGuiScaledHeight();
 
         int xOffset = ClientConfig.ACTION_POPUP_X.get();
         int yOffset = ClientConfig.ACTION_POPUP_Y.get();
@@ -108,6 +106,10 @@ public class ClientEventHandler {
 
         for (int i = 0; i < activePopups.size(); i++) {
             ScorePopup popup = activePopups.get(i);
+            int alpha = (int) (popup.getAlpha() * 255);
+            // The font draws alpha below 4 fully opaque, so stop drawing there or the fade flashes.
+            if (alpha < Argb.MIN_FONT_ALPHA) continue;
+
             String text = popup.levelUp
                     ? Component.translatable("popup.judgemod.level_up").getString()
                     : (popup.value > 0 ? "+" : "") + popup.value;
@@ -119,7 +121,6 @@ public class ClientEventHandler {
             graphics.pose().translate(screenWidth / 2.0 + xOffset, y, 0);
             graphics.pose().scale(popupScale, popupScale, popupScale);
 
-            int alpha = (int) (popup.getAlpha() * 255);
             color = (color & 0x00FFFFFF) | (alpha << 24);
 
             graphics.drawCenteredString(mc.font, text, 0, 0, color);
@@ -130,15 +131,12 @@ public class ClientEventHandler {
         }
     }
 
-    @SubscribeEvent
-    public static void onRenderScoreHud(RenderGuiOverlayEvent.Post event) {
-        if (event.getOverlay() != VanillaGuiOverlay.PLAYER_HEALTH.type()) return;
-
+    /**
+     * Registered as its own overlay just above player health (see {@link ClientSetup}).
+     * Not called while the GUI is hidden or on the death screen (the overlay's gates).
+     */
+    public static void renderScoreHud(ForgeGui gui, GuiGraphics graphics, float partialTick, int screenWidth, int screenHeight) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.screen instanceof DeathScreen) return; // Do not render HUD elements on death screen
-
-        GuiGraphics graphics = event.getGuiGraphics();
-        int screenWidth = event.getWindow().getGuiScaledWidth();
 
         // Score Display
         if (ClientConfig.DISPLAY_PERSISTENT_SCORE.get() || System.currentTimeMillis() - totalScoreDisplayTime < 2500) {
@@ -154,19 +152,22 @@ public class ClientEventHandler {
             String label = Component.translatable("hud.judgemod.score").getString() + " ";
             String scoreText = String.valueOf(clientLifeScore);
             int scoreColor = getScoreColor(clientLifeScore);
-            int color = (scoreColor & 0x00FFFFFF) | ((int) (alpha * 255) << 24);
-            int whiteColor = 0x00FFFFFF | ((int) (alpha * 255) << 24);
+            int alphaInt = (int) (alpha * 255);
+            int color = (scoreColor & 0x00FFFFFF) | (alphaInt << 24);
+            int whiteColor = 0x00FFFFFF | (alphaInt << 24);
 
             int stringWidth = mc.font.width(label + scoreText);
             int x = screenWidth / 2 - stringWidth / 2 + xOffset;
             int y = yOffset;
 
-            graphics.pose().pushPose();
-            graphics.pose().translate(x, y, 0);
-            graphics.pose().scale(scale, scale, scale);
-            graphics.drawString(mc.font, label, 0, 0, whiteColor);
-            graphics.drawString(mc.font, scoreText, mc.font.width(label), 0, color);
-            graphics.pose().popPose();
+            if (Argb.fontVisible(color)) {
+                graphics.pose().pushPose();
+                graphics.pose().translate(x, y, 0);
+                graphics.pose().scale(scale, scale, scale);
+                graphics.drawString(mc.font, label, 0, 0, whiteColor);
+                graphics.drawString(mc.font, scoreText, mc.font.width(label), 0, color);
+                graphics.pose().popPose();
+            }
         }
 
         // Level Display

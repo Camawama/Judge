@@ -87,8 +87,9 @@ All timing (cooldowns, caps, combos, the death window) runs on game time, so it 
 Note on loot chests: only naturally generated, still-unopened loot containers (chests, trapped chests, barrels with a pending loot table) count for `loot_chest`/`loot_village_chest`. Player-placed storage is never penalized.
 
 #### 5. Mistake Rules (Damage)
-Define penalties for taking specific types of damage.
-*   `damage_type`: The damage source ID (e.g., `fall`, `lava`, `drown`).
+Define penalties for taking specific types of damage. The first matching rule applies. Damage someone else is responsible for is never a mistake: no penalty when the damage has an attacker, or when the player was hurt by a player or mob in the last 5 seconds (knocked off a ledge, into lava, into a wall).
+*   `damage_type`: Which damage counts. A damage-type tag (`#minecraft:is_fall`), one damage type (`minecraft:lava`), or a legacy message id (`fall`, `inWall`, `drown`). Prefer tags: mods replace vanilla damage with their own types (Full Stop bills landings as `fullstop:kinetic_fall`, which only `#minecraft:is_fall` catches).
+*   `id` (optional): Name used in history and cooldowns (`mistake_<id>`). Defaults to `damage_type` without the `#`.
 *   `base_penalty`: Flat score reduction.
 *   `per_heart_penalty`: Additional reduction per full heart of damage taken.
 *   `cooldown_seconds`: Minimum time between penalties for this damage type (recommended for periodic damage like lava).
@@ -128,7 +129,8 @@ Define effects granted based on current Life Score. When several tiers qualify f
   ],
   "mistake_rules": [
     {
-      "damage_type": "fall",
+      "id": "fall",
+      "damage_type": "#minecraft:is_fall",
       "base_penalty": 5,
       "per_heart_penalty": 12
     }

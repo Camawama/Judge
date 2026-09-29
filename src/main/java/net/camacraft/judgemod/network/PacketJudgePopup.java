@@ -1,5 +1,6 @@
 package net.camacraft.judgemod.network;
 
+import net.camacraft.camafy.network.Packets;
 import net.camacraft.judgemod.client.ClientSetup;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.network.NetworkEvent;
@@ -33,9 +34,7 @@ public class PacketJudgePopup {
         buf.writeBoolean(levelUp);
     }
 
-    public boolean handle(Supplier<NetworkEvent.Context> supplier) {
-        NetworkEvent.Context context = supplier.get();
-        context.enqueueWork(() -> ClientSetup.showPopup(id, value, combo, levelUp));
-        return true;
+    public void handle(Supplier<NetworkEvent.Context> supplier) {
+        Packets.handleClient(supplier, () -> () -> ClientSetup.showPopup(id, value, combo, levelUp));
     }
 }

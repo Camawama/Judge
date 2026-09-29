@@ -6,11 +6,16 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import net.camacraft.judgemod.JudgeMod;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
+import net.minecraft.tags.TagKey;
 import net.minecraft.util.GsonHelper;
 import net.minecraft.util.profiling.ProfilerFiller;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageType;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -63,10 +68,28 @@ public class JudgeDataManager extends SimpleJsonResourceReloadListener {
     }
 
     public static class MistakeRule {
+        /** History and popup key ({@code "mistake_" + id}). Defaults to {@link #damageType} without the {@code #}. */
+        public String id;
+        /**
+         * As written: {@code #namespace:tag} (a damage-type tag), {@code namespace:path} (one damage
+         * type), or a bare legacy message id ({@code fall}, {@code inWall}) as older rule files used.
+         */
         public String damageType;
         public int basePenalty;
         public int perHeartPenalty;
         public int cooldownSeconds;
+        private TagKey<DamageType> tag;
+        private ResourceKey<DamageType> type;
+
+        /**
+         * Tags are the way to name damage: Full Stop replaces vanilla fall damage with its own
+         * type, so only {@code #minecraft:is_fall} still catches every fall.
+         */
+        public boolean matches(DamageSource source) {
+            if (tag != null) return source.is(tag);
+            if (type != null) return source.is(type);
+            return damageType.equals(source.getMsgId());
+        }
     }
 
     public static class ThresholdTier {
@@ -166,6 +189,18 @@ public class JudgeDataManager extends SimpleJsonResourceReloadListener {
             JsonObject r = e.getAsJsonObject();
             MistakeRule rule = new MistakeRule();
             rule.damageType = GsonHelper.getAsString(r, "damage_type");
+            boolean isTag = rule.damageType.startsWith("#");
+            String name = isTag ? rule.damageType.substring(1) : rule.damageType;
+            if (isTag || name.contains(":")) {
+                ResourceLocation id = ResourceLocation.tryParse(name);
+                if (id == null) {
+                    JudgeMod.LOGGER.warn("Skipping mistake rule with invalid damage_type '{}'", rule.damageType);
+                    continue;
+                }
+                if (isTag) rule.tag = TagKey.create(Registries.DAMAGE_TYPE, id);
+                else rule.type = ResourceKey.create(Registries.DAMAGE_TYPE, id);
+            }
+            rule.id = GsonHelper.getAsString(r, "id", name);
             rule.basePenalty = GsonHelper.getAsInt(r, "base_penalty", 0);
             rule.perHeartPenalty = GsonHelper.getAsInt(r, "per_heart_penalty", 0);
             rule.cooldownSeconds = GsonHelper.getAsInt(r, "cooldown_seconds", 0);

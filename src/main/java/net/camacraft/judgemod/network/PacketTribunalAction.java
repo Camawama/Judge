@@ -1,5 +1,6 @@
 package net.camacraft.judgemod.network;
 
+import net.camacraft.camafy.network.Packets;
 import net.camacraft.judgemod.capability.JudgeDataProvider;
 import net.camacraft.judgemod.data.JudgeDataManager;
 import net.camacraft.judgemod.menu.TribunalMenu;
@@ -7,7 +8,6 @@ import net.camacraft.judgemod.registry.ModItems;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkEvent;
 
@@ -33,12 +33,9 @@ public class PacketTribunalAction {
         buf.writeEnum(action);
     }
 
-    public boolean handle(Supplier<NetworkEvent.Context> supplier) {
-        NetworkEvent.Context context = supplier.get();
-        context.enqueueWork(() -> {
-            ServerPlayer player = context.getSender();
-            if (player == null) return;
-
+    public void handle(Supplier<NetworkEvent.Context> supplier) {
+        // Runs on the server thread, only with a sending player.
+        Packets.handleServer(supplier, player -> {
             // Server-side validation: tribunal actions are only legal while a
             // Tribunal menu opened from a real Tribunal Stone is in use.
             if (!(player.containerMenu instanceof TribunalMenu menu) || !menu.stillValid(player)) return;
@@ -91,6 +88,5 @@ public class PacketTribunalAction {
                 PacketHandler.sendToPlayer(new PacketUpdateTribunalMenu(data.getLifeScore(), data.getJudgeLevel(), data.getFracturedComposureStacks(), cost), player);
             });
         });
-        return true;
     }
 }

@@ -83,7 +83,7 @@
     { "damage_type": "outOfWorld", "base_penalty": 500, "per_heart_penalty": 0, "cooldown_seconds": 10 },
     { "damage_type": "inWall", "base_penalty": 10, "per_heart_penalty": 12, "cooldown_seconds": 2 },
     { "damage_type": "lava", "base_penalty": 10, "per_heart_penalty": 14, "cooldown_seconds": 2 },
-    { "damage_type": "fall", "base_penalty": 5, "per_heart_penalty": 12 },
+    { "id": "fall", "damage_type": "#minecraft:is_fall", "base_penalty": 5, "per_heart_penalty": 12 },
     { "damage_type": "inFire", "base_penalty": 6, "per_heart_penalty": 10, "cooldown_seconds": 3 },
     { "damage_type": "onFire", "base_penalty": 6, "per_heart_penalty": 10, "cooldown_seconds": 3 },
     { "damage_type": "freeze", "base_penalty": 6, "per_heart_penalty": 10, "cooldown_seconds": 2 },

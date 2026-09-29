@@ -72,7 +72,6 @@ public class TribunalScreen extends AbstractContainerScreen<TribunalMenu> {
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         renderBackground(guiGraphics);
         super.render(guiGraphics, mouseX, mouseY, partialTick);
-        renderTooltip(guiGraphics, mouseX, mouseY);
 
         int x = (width - imageWidth) / 2;
         int y = (height - imageHeight) / 2;
@@ -82,5 +81,8 @@ public class TribunalScreen extends AbstractContainerScreen<TribunalMenu> {
         guiGraphics.drawString(this.font, Component.translatable("screen.judgemod.score", this.menu.clientLifeScore), x + 100, y + 30, 0xFFFFFF);
         guiGraphics.drawString(this.font, Component.translatable("screen.judgemod.cost", this.menu.clientCostToNextLevel), x + 100, y + 40, 0xFFFFFF);
         guiGraphics.drawString(this.font, Component.translatable("screen.judgemod.stains", this.menu.clientFracturedComposureStacks), x + 100, y + 60, 0xFF5555);
+
+        // Tooltip last so the info text above can't paint over a hovered item's tooltip
+        renderTooltip(guiGraphics, mouseX, mouseY);
     }
 }

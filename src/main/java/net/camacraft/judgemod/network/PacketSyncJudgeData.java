@@ -1,5 +1,6 @@
 package net.camacraft.judgemod.network;
 
+import net.camacraft.camafy.network.Packets;
 import net.camacraft.judgemod.client.ClientSetup;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.network.NetworkEvent;
@@ -33,13 +34,9 @@ public class PacketSyncJudgeData {
         buf.writeInt(fracturedComposureStacks);
     }
 
-    public boolean handle(Supplier<NetworkEvent.Context> supplier) {
-        NetworkEvent.Context context = supplier.get();
-        context.enqueueWork(() -> {
-            // Client side handling
-            // We need to access the client player safely
-            ClientSetup.handleSyncPacket(lifeScore, judgeLevel, lastDeathLifeScore, fracturedComposureStacks);
-        });
-        return true;
+    public void handle(Supplier<NetworkEvent.Context> supplier) {
+        // Client side handling; the double supplier keeps client classes unlinked on a server.
+        Packets.handleClient(supplier, () -> () ->
+                ClientSetup.handleSyncPacket(lifeScore, judgeLevel, lastDeathLifeScore, fracturedComposureStacks));
     }
 }
