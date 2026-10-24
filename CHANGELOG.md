@@ -4,6 +4,11 @@ All notable changes to JUDGE are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 Item codes (C1, H3, M12, ...) reference the findings in [AUDIT.md](AUDIT.md).
 
+## [0.0.4] — 2026-10-23
+
+### Fixed
+- **Worlds made by Multiworld are judged by what they are.** Dimension gates take Camafy's dimension entries (an id, `multiworld:*`, `type:<dimension type>`, `kind:<overworld|nether|end>`) and the defaults are `kind:nether` 15 and `kind:end` 35: a Multiworld copy of the Nether or the End was ungated. `enter_dimension` counts the vanilla three by kind (a copy of the Nether is the Nether), so hopping between Multiworld worlds no longer pays +250 each. The sleep reward follows the overworld's day: each Multiworld world keeps its own clock, and sleeping in several paid several times a night. Needs Camafy 0.1.45.
+
 ## [0.0.3] — 2026-07-18
 
 Full remediation pass over the 2026-07-18 codebase audit. Every finding in AUDIT.md was addressed.

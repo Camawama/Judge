@@ -226,6 +226,19 @@ public class JudgeDataManager extends SimpleJsonResourceReloadListener {
     public static int getSurviveIntervalTicks() { return surviveIntervalMinutes * 60 * 20; }
     public static long getHistoryRetentionTicks() { return historyRetentionTicks; }
     public static int getDimensionReq(String dimId) { return DIMENSION_GATES.getOrDefault(dimId, 0); }
+
+    /**
+     * The level a world needs: the highest gate whose key names it. A key is a dimension id, an id with {@code *}
+     * wildcards ({@code multiworld:*}), {@code type:<dimension type>} or {@code kind:<overworld|nether|end>} (Camafy's
+     * {@code Dimensions}), so a Multiworld copy of the Nether is gated like the Nether.
+     */
+    public static int getDimensionReq(net.minecraft.world.level.Level level) {
+        int req = 0;
+        for (Map.Entry<String, Integer> gate : DIMENSION_GATES.entrySet()) {
+            if (gate.getValue() > req && net.camacraft.camafy.world.Dimensions.matches(level, List.of(gate.getKey()))) req = gate.getValue();
+        }
+        return req;
+    }
     public static int getBlockInteractReq(String blockId) { return BLOCK_INTERACTION_GATES.getOrDefault(blockId, 0); }
     public static int getBlockBreakReq(String blockId) { return BLOCK_BREAK_GATES.getOrDefault(blockId, 0); }
     public static int getItemUseReq(String itemId) { return ITEM_USE_GATES.getOrDefault(itemId, 0); }

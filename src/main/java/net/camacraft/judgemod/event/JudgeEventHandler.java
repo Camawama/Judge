@@ -160,7 +160,16 @@ public class JudgeEventHandler {
      */
     private void markCurrentDimensionEntered(ServerPlayer player) {
         player.getCapability(JudgeDataProvider.JUDGE_DATA).ifPresent(data ->
-                data.setEnteredDimensionThisLife(player.level().dimension().location().toString()));
+                data.setEnteredDimensionThisLife(enteredKey(player.level())));
+    }
+
+    /**
+     * What "entered a dimension" counts: its kind for the vanilla three (a Multiworld copy of the Nether is the Nether, so
+     * hopping between copies earns nothing new), its id for anything else (the Twilight Forest, the Aether).
+     */
+    private static String enteredKey(net.minecraft.world.level.Level level) {
+        net.camacraft.camafy.world.Dimensions.Kind kind = net.camacraft.camafy.world.Dimensions.kind(level);
+        return kind == net.camacraft.camafy.world.Dimensions.Kind.OTHER ? level.dimension().location().toString() : "kind:" + kind.key();
     }
 
     /**
@@ -172,7 +181,8 @@ public class JudgeEventHandler {
     public void onDimensionTravel(EntityTravelToDimensionEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player) || isExempt(player)) return;
         ResourceLocation dim = event.getDimension().location();
-        int req = JudgeDataManager.getDimensionReq(dim.toString());
+        ServerLevel target = player.getServer() == null ? null : player.getServer().getLevel(event.getDimension());
+        int req = target != null ? JudgeDataManager.getDimensionReq(target) : JudgeDataManager.getDimensionReq(dim.toString());
         if (req <= 0) return;
         player.getCapability(JudgeDataProvider.JUDGE_DATA).ifPresent(data -> {
             if (data.getJudgeLevel() < req) {
@@ -185,7 +195,7 @@ public class JudgeEventHandler {
     @SubscribeEvent
     public void onPlayerChangedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player) || isExempt(player)) return;
-        String dim = event.getTo().location().toString();
+        String dim = enteredKey(player.level());
         player.getCapability(JudgeDataProvider.JUDGE_DATA).ifPresent(data -> {
             if (!data.hasEnteredDimensionThisLife(dim)) {
                 applyRule(player, data, "enter_dimension", null);
@@ -393,7 +403,8 @@ public class JudgeEventHandler {
     public void onPlayerSleep(PlayerWakeUpEvent event) {
         if (event.getEntity() instanceof ServerPlayer player && player.level().isDay()) {
             if (isExempt(player)) return;
-            long day = player.level().getDayTime() / 24000L;
+            // The overworld's day: a world of Multiworld keeps its own clock, and a night slept in each must not pay twice.
+            long day = player.server.overworld().getDayTime() / 24000L;
             player.getCapability(JudgeDataProvider.JUDGE_DATA).ifPresent(data -> {
                 if (!data.hasSleptOnDay(day)) {
                     applyRule(player, data, "sleep", null);
