@@ -2,6 +2,8 @@ package net.camacraft.judgemod.command;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import net.camacraft.camafy.permission.Permissions;
+import net.camacraft.judgemod.JudgeMod;
 import net.camacraft.judgemod.capability.IJudgeData;
 import net.camacraft.judgemod.capability.JudgeData;
 import net.camacraft.judgemod.capability.JudgeDataProvider;
@@ -23,7 +25,8 @@ public class JudgeCommands {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("judge")
-            .requires(source -> source.hasPermission(2))
+            // operator level 2, or the permission judgemod.command.judge from the server's permissions mod (Camafy's Permissions)
+            .requires(Permissions.require(JudgeMod.MODID, "command.judge", 2))
             .then(Commands.literal("get")
                 .then(Commands.argument("player", EntityArgument.player())
                     .then(Commands.literal("score").executes(context -> getScore(context.getSource(), EntityArgument.getPlayer(context, "player"))))

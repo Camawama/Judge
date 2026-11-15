@@ -74,7 +74,11 @@ public class JudgeData implements IJudgeData {
     @Override
     public void setLifeScore(int score) { this.lifeScore = score; }
     @Override
-    public void addLifeScore(int amount) { this.lifeScore += amount; }
+    public void addLifeScore(int amount) {
+        // Stops at the ends of an int. Past them the sum wrapped round: a long chain of the quadratic negative
+        // combo took the score below the least int and it came out near +2.1 billion.
+        this.lifeScore = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, (long) this.lifeScore + amount));
+    }
 
     @Override
     public int getJudgeLevel() { return judgeLevel; }

@@ -67,6 +67,11 @@ import java.util.function.Predicate;
 public class JudgeEventHandler {
     private static final String SPAWNER_TAG = "FromSpawner";
     private static final int GATE_MESSAGE_THROTTLE_TICKS = 20;
+    /**
+     * The longest a combo counts. A negative combo costs the square of its length and had no end: some 1,860
+     * chained kills of passive animals summed past the least int, and the killer's score came out near +2.1 billion.
+     */
+    private static final int MAX_COMBO = 1000;
 
     /** Throttles gate-denial messages so portal/holding-right-click spam doesn't flood the action bar. */
     private static final Map<UUID, Long> LAST_GATE_MESSAGE = new HashMap<>();
@@ -515,7 +520,7 @@ public class JudgeEventHandler {
             int combo = 1;
             if (rule.combo_window_seconds > 0) {
                 if (rule.id.equals(data.getComboActionKey()) && now < data.getComboExpireTime()) {
-                    combo = data.getComboCount() + 1;
+                    combo = Math.min(MAX_COMBO - 1, data.getComboCount()) + 1;
                 }
                 data.setComboActionKey(rule.id);
                 data.setComboCount(combo);

@@ -41,6 +41,8 @@ Located in `config/judgemod-client.toml`.
 *   `/judge add <player> score <amount>`: Adjust score relatively.
 *   `/judge reset <player>`: Reset score, composure, and combos (Judge Level and history are kept).
 
+`/judge` asks for operator level 2, or the permission `judgemod.command.judge` from a permissions mod (LuckPerms, through Camafy's `Permissions`, 0.1.89).
+
 ### Datapack Configuration
 JudgeMod is fully data-driven. You can override the default rules by creating a datapack and placing a JSON file at `data/judgemod/judge_rules/default.json`.
 
@@ -171,6 +173,7 @@ Define effects granted based on current Life Score. When several tiers qualify f
 *   **Positive Actions**: `Delta = BaseDelta + (ComboCount - 1)` (Linear scaling).
 *   **Negative Actions**: `Delta = BaseDelta - (ComboCount - 1)^2` (Quadratic scaling).
 *   **Window**: Defined per-rule in `combo_window_seconds`.
+*   **Limits**: `ComboCount` stops at 1000, and the Life Score stops at the ends of a 32-bit integer.
 
 ### Visuals
 *   **Death Screen**: `DeathScreenMixin` cancels vanilla score render and injects custom `renderDeathScreenScore` at correct Z-level.

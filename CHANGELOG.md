@@ -4,6 +4,14 @@ All notable changes to JUDGE are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 Item codes (C1, H3, M12, ...) reference the findings in [AUDIT.md](AUDIT.md).
 
+## [0.0.5] — 2026-11-11
+
+### Changed
+- **`/judge` takes a permission.** `/judge get|set|add|reset` asks for operator level 2 as before, or the permission `judgemod.command.judge` from a permissions mod on the server (LuckPerms, through Camafy's `Permissions`). Nothing changes on a server that sets nothing up. Needs Camafy 0.1.89.
+
+### Fixed
+- **The Life Score stops at the ends of an integer, and a combo at 1000.** A negative combo costs the square of its length and had no end, and the score was added up without a limit: some 1,860 chained kills of passive animals summed past the least 32-bit integer and the killer's score came out near +2.1 billion. `addLifeScore` now stops at the least and the greatest integer (rule deltas, mistake penalties, Tribunal costs and `/judge add` alike), and a combo counts to 1000 and stays there (at most +999 on a positive action, -998,001 on a negative one).
+
 ## [0.0.4] — 2026-10-23
 
 ### Fixed
