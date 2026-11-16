@@ -15,6 +15,11 @@ Welcome to **JudgeMod**, a mod that fundamentally changes Minecraft progression 
     *   Dying too frequently (3+ times in 5 mins) applies a stacking penalty multiplier.
     *   Cleanse it at a Tribunal Stone using Score or a **Purification Offering**.
 
+## 📦 Requirements
+
+*   Minecraft 1.20.1 with Forge 47.4 or newer, on the server and every client.
+*   [Camafy](https://www.curseforge.com/minecraft/mc-mods/camafy) 0.1.89 or newer (required).
+
 ## 🚀 Getting Started
 
 1.  **Craft a Tribunal Stone**: (Stone Bricks, Amethyst, Book, Gold Ingot).
